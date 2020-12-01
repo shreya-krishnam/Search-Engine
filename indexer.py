@@ -39,20 +39,25 @@ def get_token_occurances(stems):
             numWords[word] = 1
     return numWords
 
-def initialize_posting():
-    obj = open("posting.pickle","wb")
-    posting = defaultdict(defaultdict)
-    pickle.dump(posting,obj)
-    obj.close()
-
 def make_postings(docID,token_count,key_posting):
     for token,count in token_count.items():
         key_posting[token][docID] =  count
     return key_posting
 
-def pickle_postings(key_posting):
-    obj = open("posting.pickle","wb")
+def pickle_final_postings(key_posting):
+    obj = open("final_posting.pickle","wb")
     pickle.dump(key_posting,obj)
+    obj.close()
+
+def sortandwritetodisk(key_posting,partialindexnumber):
+    print(partialindexnumber)
+    file_to_open =  "partial"+str(partialindexnumber)+".pickle"
+    obj = open(file_to_open,"wb")
+    sorted_posting = sorted(key_posting.items(), key = lambda kv: (kv[0],kv[1]))
+    sorted_key_posting = defaultdict(defaultdict)
+    for k,v in sorted_posting:
+        sorted_key_posting[k] = v
+    pickle.dump(sorted_key_posting,obj)
     obj.close()
 
 
@@ -67,6 +72,40 @@ def pickle_docid_urls(docid_url_dict):
     pickle.dump(docid_url_dict,obj)
     obj.close()
 
+def mergepartials(file_obj1,file_obj2):
+    posting1 = pickle.load(file_obj1)
+    posting2 = pickle.load(file_obj2)
+    merged = defaultdict(defaultdict)
+    for k,v in posting1.items():
+        if k not in posting2:
+            merged[k] =  v
+        else:
+            temp_dict = {**v,**posting2[k]}
+            value = defaultdict(defaultdict,temp_dict)
+            merged[k] = value
+    for k,v in posting2.items():
+        if k not in posting1:
+            merged[k] = v
+    return merged
+
+def mergeandsort(merged1,merged2):
+    merged = defaultdict(defaultdict)
+    for k,v in merged1.items():
+        if k not in merged2:
+            merged[k] =  v
+        else:
+            temp_dict = {**v,**merged2[k]}
+            value = defaultdict(defaultdict,temp_dict)
+            merged[k] = value
+    for k,v in merged2.items():
+        if k not in merged1:
+            merged[k] = v
+    sorted_posting = sorted(merged.items(), key = lambda kv: (kv[0],kv[1]))
+    sorted_final_posting = defaultdict(defaultdict)
+    for k,v in sorted_posting:
+        sorted_final_posting[k] = v
+    return sorted_final_posting
+    
 def read_files():
     directory = "C:\\Users\\Shreya\\Documents\\CLASS NOTES\\CS 121\\Assignment3\\developer\\developer\\DEV"
     list_of_all_urls =  []
@@ -90,10 +129,28 @@ def read_files():
                 list_of_all_urls.append(json_data["url"])
                 docid_url_dict = make_dict_urls(docid_url_dict,docID,json_data["url"])
                 file_object.close()
-    print("Number of documents:",docID) 
-    pickle_postings(key_posting)
-    pickle_docid_urls(docid_url_dict)   
-    print_report_info(key_posting)
+                if docID % 15000 == 0:
+                    print(docID)
+                    sortandwritetodisk(key_posting,docID//15000)
+                    key_posting.clear()
+    sortandwritetodisk(key_posting,(docID//15000)+1)
+    partial1_obj = open("partial1.pickle","rb")
+    partial2_obj = open("partial2.pickle","rb")
+    partial3_obj =  open("partial3.pickle","rb")
+    partial4_obj = open("partial4.pickle","rb")
+
+    merged1 = mergepartials(partial1_obj,partial2_obj)
+    merged2 = mergepartials(partial3_obj,partial4_obj)
+
+    partial1_obj.close()
+    partial2_obj.close()
+    partial3_obj.close()
+    partial4_obj.close()
+
+    final_posting = mergeandsort(merged1,merged2)
+    pickle_final_postings(final_posting)
+    print(len(final_posting))
+
 
 
 
