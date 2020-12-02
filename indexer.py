@@ -17,8 +17,7 @@ def get_content_string(rawcontent):
     for t in text:
         if t.parent.name not in blacklist:
             content += '{} '.format(t)
-    clean = re.compile('<.*?>')
-    return re.sub(clean, '', content)
+    return content
 
 def tokenize(content_string):
     s = re.compile("[a-z0-9']+")
@@ -50,7 +49,6 @@ def pickle_final_postings(key_posting):
     obj.close()
 
 def sortandwritetodisk(key_posting,partialindexnumber):
-    print(partialindexnumber)
     file_to_open =  "partial"+str(partialindexnumber)+".pickle"
     obj = open(file_to_open,"wb")
     sorted_posting = sorted(key_posting.items(), key = lambda kv: (kv[0],kv[1]))
@@ -67,45 +65,88 @@ def print_report_info(key_posting):
 def make_dict_urls(docid_url_dict,docID,url):
     docid_url_dict[docID] = url
     return docid_url_dict
+
 def pickle_docid_urls(docid_url_dict):
     obj = open("doc_id_urls.pickle","wb")
     pickle.dump(docid_url_dict,obj)
     obj.close()
 
-def mergepartials(file_obj1,file_obj2):
-    posting1 = pickle.load(file_obj1)
-    posting2 = pickle.load(file_obj2)
-    merged = defaultdict(defaultdict)
-    for k,v in posting1.items():
-        if k not in posting2:
-            merged[k] =  v
+def make_alphabet_number_initial_postings(partial_posting):
+    alphabet_list = [chr(x) for x in range(ord('a'), ord('z') + 1)] 
+    a_partial,b_partial,c_partial,d_partial,e_partial,f_partial,g_partial,h_partial, i_partial, j_partial,k_partial,l_partial,m_partial,n_partial,o_partial,p_partial,q_partial,r_partial,s_partial,t_partial,u_partial,v_partial,w_partial,x_partial,y_partial,z_partial = (defaultdict(defaultdict),)*26
+    num_partial = defaultdict(defaultdict)
+    for k,v in partial_posting.items():
+        if k[0] in alphabet_list:
+            exec_string = k[0].lower()+"_partial[k] = v"
+            exec(exec_string)
         else:
-            temp_dict = {**v,**posting2[k]}
-            value = defaultdict(defaultdict,temp_dict)
-            merged[k] = value
-    for k,v in posting2.items():
-        if k not in posting1:
-            merged[k] = v
-    return merged
+            num_partial[k] = v
+    for c in alphabet_list:
+        file_path = "partials/"+c+".pickle"
+        obj = open(file_path,"wb")
+        writing_exec_string = "pickle.dump(" +c+ "_partial,obj)"
+        exec(writing_exec_string)
+        obj.close()
+    num_obj = open("partials/numbers.pickle","wb")
+    pickle.dump(num_partial,num_obj)
+    num_obj.close()
 
-def mergeandsort(merged1,merged2):
-    merged = defaultdict(defaultdict)
-    for k,v in merged1.items():
-        if k not in merged2:
-            merged[k] =  v
+
+def merge_and_write_alphabet_number_postings(partial_posting):
+    alphabet_list = [chr(x) for x in range(ord('a'), ord('z') + 1)] 
+    alphabet_num_postings = dict()
+    for c in alphabet_list: #opening all files
+        file_obj = open("partials/"+c+".pickle","rb")
+        alphabet_num_postings[c] = pickle.load(file_obj)
+        file_obj.close()
+    num_obj = open("partials/numbers.pickle","rb")
+    alphabet_num_postings['num'] = pickle.load(num_obj)
+    num_obj.close()
+    for k,v in partial_posting.items(): #merging and sorting
+        if k[0] in alphabet_list:
+            if k not in alphabet_num_postings[k[0]]:
+                alphabet_num_postings[k[0]][k] = v
+            else:
+                temp_dict = {**alphabet_num_postings[k[0]][k],**partial_posting[k]}
+                value = defaultdict(defaultdict,temp_dict)
+                alphabet_num_postings[k[0]][k] = value
         else:
-            temp_dict = {**v,**merged2[k]}
-            value = defaultdict(defaultdict,temp_dict)
-            merged[k] = value
-    for k,v in merged2.items():
-        if k not in merged1:
-            merged[k] = v
-    sorted_posting = sorted(merged.items(), key = lambda kv: (kv[0],kv[1]))
+            if k not in alphabet_num_postings['num']:
+                alphabet_num_postings['num'][k] = v
+            else:
+                temp_dict = {**alphabet_num_postings['num'][k],**partial_posting[k]}
+                value = defaultdict(defaultdict,temp_dict)
+                alphabet_num_postings['num'][k] = value
+    
+    #sorting             
+    for c,v in alphabet_num_postings.items():
+        sorted_posting = sorted(v.items(), key = lambda kv: (kv[0],kv[1]))
+        sorted_final_posting = defaultdict(defaultdict)
+        for k,v in sorted_posting:
+            sorted_final_posting[k] = v
+        alphabet_num_postings[c] =  sorted_final_posting
+    sorted_posting = sorted(alphabet_num_postings['num'].items(), key = lambda kv: (kv[0],kv[1]))
     sorted_final_posting = defaultdict(defaultdict)
     for k,v in sorted_posting:
         sorted_final_posting[k] = v
-    return sorted_final_posting
+    alphabet_num_postings['num'] =  sorted_final_posting
     
+    #Writing to disk
+    for c in alphabet_list:
+        file_obj = open("partials/"+c+".pickle","wb")
+        alphabet_num_postings[c] = pickle.dump(alphabet_num_postings[c],file_obj)
+        file_obj.close()
+    num_obj = open("partials/numbers.pickle","wb")
+    pickle.dump(alphabet_num_postings['num'],num_obj)
+    num_obj.close()
+    
+def create_alphabetical_order_posting(partial_obj,partial_number):
+    partial_posting = pickle.load(partial_obj)
+    if partial_number == 1:
+        make_alphabet_number_initial_postings(partial_posting)
+    else:
+       merge_and_write_alphabet_number_postings(partial_posting) 
+
 def read_files():
     directory = "C:\\Users\\Shreya\\Documents\\CLASS NOTES\\CS 121\\Assignment3\\developer\\developer\\DEV"
     list_of_all_urls =  []
@@ -130,7 +171,6 @@ def read_files():
                 docid_url_dict = make_dict_urls(docid_url_dict,docID,json_data["url"])
                 file_object.close()
                 if docID % 15000 == 0:
-                    print(docID)
                     sortandwritetodisk(key_posting,docID//15000)
                     key_posting.clear()
     sortandwritetodisk(key_posting,(docID//15000)+1)
@@ -139,37 +179,15 @@ def read_files():
     partial3_obj =  open("partial3.pickle","rb")
     partial4_obj = open("partial4.pickle","rb")
 
-    merged1 = mergepartials(partial1_obj,partial2_obj)
-    merged2 = mergepartials(partial3_obj,partial4_obj)
+    create_alphabetical_order_posting(partial1_obj,1)
+    create_alphabetical_order_posting(partial2_obj,2)
+    create_alphabetical_order_posting(partial3_obj,3)
+    create_alphabetical_order_posting(partial4_obj,4)
 
     partial1_obj.close()
     partial2_obj.close()
     partial3_obj.close()
     partial4_obj.close()
-
-    final_posting = mergeandsort(merged1,merged2)
-    pickle_final_postings(final_posting)
-    print(len(final_posting))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 if __name__ == "__main__":
     read_files()
