@@ -34,7 +34,7 @@ def get_docIDs_intersection(query_stems,alphabet_num_key_postings):
         stem_docIDs.append(s)
     return list(reduce(lambda i, j: i & j, (set(x) for x in stem_docIDs))) 
 
-def calculate_cosine_score(alphabet_num_key_postings, stem,tf_query,docID):
+def calculate_raw_cosine_score(alphabet_num_key_postings, stem,tf_query,docID):
     alphabet_list = [chr(x) for x in range(ord('a'), ord('z') + 1)]
     tf_query_stem = tf_query[stem]
     N = 55393
@@ -45,10 +45,7 @@ def calculate_cosine_score(alphabet_num_key_postings, stem,tf_query,docID):
         df = len(alphabet_num_key_postings['num'][stem])
         tfidf_doc = alpha_num_key_postings['num'][stem][docID]
     tfidf_query_stem = indexer.calculate_tfidf(tf_query_stem,N,df)
-    tfidf_query_normalized = tfidf_query_stem / indexer.np.sqrt(tfidf_query_stem**2)
-    doc_normalized = tfidf_doc / indexer.np.sqrt(tfidf_doc**2)
-    return tfidf_query_normalized * doc_normalized
-
+    return (tfidf_query_stem *  tfidf_doc, tfidf_query_stem , tfidf_doc)
     
 
 
@@ -59,10 +56,21 @@ def get_similarity_score(intersected_docIDs,alphabet_num_key_postings,query_stem
     tf_query = indexer.get_token_occurances(query_stems)
     cosine_scores = indexer.defaultdict(float) #{docID: cosine_score}
     for docID in intersected_docIDs:
-        cos_score = 0
+        tfidf_raw_scores = []
+        tfidf_query_stems = []
+        tfidf_docs = []
         for stem in query_stems:
-            cos_score += calculate_cosine_score(alphabet_num_key_postings,stem,tf_query,docID)
+            tfidf_raw_score,tfidf_query_stem,tfidf_doc = calculate_raw_cosine_score(alphabet_num_key_postings,stem,tf_query,docID)
+            tfidf_raw_scores.append(tfidf_raw_score)
+            tfidf_query_stems.append(tfidf_query_stem**2)
+            tfidf_docs.append(tfidf_doc**2)
+        normalized_tfidf_score = sum( tfidf_raw_scores)
+        normalized_query_score = indexer.np.sqrt(sum(tfidf_query_stems))
+        normalized_doc_score = indexer.np.sqrt(sum(tfidf_docs))
+        cos_score = normalized_tfidf_score / ( normalized_query_score * normalized_doc_score )
         cosine_scores[docID] =  cos_score
+
+
     return sorted(cosine_scores.items(),key = lambda kv:-kv[1])
 
 
