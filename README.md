@@ -25,6 +25,7 @@ Steps
 1) Download the zip file in the submission(unzip) which already has all the pre - computed indexes and run the indexer.py file and give the input directory as your ROOT folder of your dev files.
 Eg input in my case: C:\\Users\\Shreya\\Documents\\CLASS NOTES\\CS 121\\Assignment3\\developer
 2) Then to run the search component run search_query.py file
+
 (OR)
 1) Download the just the indexer.py files and search_query.py files
 2) Then add 2 folders called partials and partials_tfidf (please follow the exact names).
