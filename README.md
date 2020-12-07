@@ -13,7 +13,7 @@ It checks for duplicates and near duplicates as well.
 
 # search_query.py
 This our search component file.
-Search_query.py allows a user to input a query. It returns the top 5 URLs matching a query based on the TF-IDF scores of documents where the query appears once or more. It implements a boolean AND search but with a ranked retrieval. It uses an aggregate tfidf score to compute the relevance of the best matching documents. It's optimized to maximize the speed + performance using the concept of contendenrs and champion lists during post processing.
+Search_query.py allows a user to input a query. It returns the top 5 URLs matching a query based on the TF-IDF scores of documents where the query appears once or more. It implements a boolean AND search but with a ranked retrieval. It uses an aggregate tfidf score to compute the relevance of the best matching documents. It's optimized to maximize the speed + performance using the concept of contendenders and champion lists during post processing.
 
 How to use our system
 --------------------------------------
